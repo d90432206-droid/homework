@@ -33,7 +33,37 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
-  // ... useEffect for loading image remains same ...
+  // Load image onto canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.src = imageSrc;
+    img.onload = () => {
+      // Fit to container width roughly or keep intrinsic?
+      // Let's keep intrinsic resolution but display scaled via CSS
+      // We'll manage scale factor.
+      
+      // Actually, let's limit max width to something reasonable like 1000px for performance, or keep original.
+      // Keeping original is best for print quality.
+      canvas.width = img.width;
+      canvas.height = img.height;
+      setImgSize({ width: img.width, height: img.height });
+      
+      ctx.drawImage(img, 0, 0);
+
+      // Calculate initial display scale
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        if (img.width > containerWidth) {
+           setScale(containerWidth / img.width);
+        }
+      }
+    };
+  }, [imageSrc]);
 
   // We need to use React.MouseEvent/TouchEvent or native kinds.
   // Since we attach to React elements, we get React Synthetic Events.
