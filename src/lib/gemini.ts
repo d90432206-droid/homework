@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Use gemini-pro-vision as it is the stable model for many older/standard keys
-const MODEL_NAME = "gemini-pro-vision";
+
+// Updated to use the specific model requested by the user
+const MODEL_NAME = "gemini-2.5-flash";
 
 export async function convertImageToText(imgBase64: string, apiKey: string) {
   try {
@@ -37,25 +38,28 @@ export async function convertImageToText(imgBase64: string, apiKey: string) {
 export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // gemini-pro-vision usually does not support responseMimeType: "application/json" well
-    // So we ask for text and parse it manually.
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    // Newer Flash models support structured JSON output reliably
+    const model = genAI.getGenerativeModel({ 
+      model: MODEL_NAME,
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
     const base64Data = imgBase64.split(",")[1];
 
     const prompt = `
       Analyze this exam paper. Identify the bounding boxes for each distinct question block.
-      Return a STRICT JSON array of objects. Do not wrap in markdown code blocks.
-      Each object must have:
+      Return a JSON array of objects. Each object must have:
       - "ymin": number (0-100, top edge percentage)
       - "xmin": number (0-100, left edge percentage)
       - "ymax": number (0-100, bottom edge percentage)
       - "xmax": number (0-100, right edge percentage)
       
       Example:
-      [{"ymin": 10, "xmin": 5, "ymax": 15, "xmax": 95}, {"ymin": 20, "xmin": 5, "ymax": 30, "xmax": 95}]
-      
-      Include ALL questions found.
+      [
+        {"ymin": 10, "xmin": 5, "ymax": 15, "xmax": 95},
+        ...
+      ]
+      Include ALL questions found. Do not miss any.
     `;
 
     const imagePart = {
@@ -67,11 +71,9 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
 
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
-    let text = response.text();
+    const text = response.text();
     
-    // Clean up potential markdown formatting
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
+    // Parse JSON
     try {
       return JSON.parse(text);
     } catch (e) {
