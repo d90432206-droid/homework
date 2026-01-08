@@ -69,7 +69,7 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
                 if (snippet.textContent) continue;
                 setProcessingId(snippet.id);
                 try {
-                  const text = await convertImageToText(snippet.imageData, apiKey);
+                  const text = await convertImageToText(snippet.imageData, apiKey!);
                   setSnippets(prev => prev.map(s => s.id === snippet.id ? { ...s, textContent: text } : s));
                   await new Promise(r => setTimeout(r, 500));
                 } catch (error: any) {
