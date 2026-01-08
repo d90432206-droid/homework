@@ -1,9 +1,29 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
 // We will try these models in order until one works.
 // User requested to ONLY use Gemini 2.5+ models (excluding 2.0/1.5).
 const MODELS_TO_TRY = [
   "gemini-2.5-flash"
+];
+
+// Safety settings to allow exam content (sometimes flagged incorrectly as harmful)
+const SAFETY_SETTINGS = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
 ];
 
 export async function convertImageToText(imgBase64: string, apiKey: string) {
@@ -12,14 +32,23 @@ export async function convertImageToText(imgBase64: string, apiKey: string) {
   for (const modelName of MODELS_TO_TRY) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        safetySettings: SAFETY_SETTINGS
+      });
       const base64Data = imgBase64.split(",")[1];
 
       const prompt = `
         You are an expert exam digitizer. 
         Task: Transcribe the PRINTED text in this image.
-        CRITICAL INSTRUCTION: COMPLETELY IGNORE AND REMOVE ANY HANDWRITTEN ANSWERS, MARKS, OR DOODLES.
-        Return ONLY the printed question text. Maintain original formatting (newlines).
+        
+        Rules:
+        1. COMPLETELY IGNORE AND REMOVE ANY HANDWRITTEN ANSWERS, MARKS, CIRCLES, OR DOODLES.
+        2. Return ONLY the printed question text. 
+        3. Maintain original formatting (newlines).
+        4. If the image contains a math problem, use LaTeX formatting for equations where appropriate, or standard clean text.
+        
+        Output only the transcribed text.
       `;
 
       const imagePart = {
@@ -50,7 +79,10 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
       console.log(`Attempting auto-detect with model: ${modelName}`);
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        safetySettings: SAFETY_SETTINGS
+      });
       const base64Data = imgBase64.split(",")[1];
 
       let prompt = `

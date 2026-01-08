@@ -38,8 +38,9 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
     try {
       const text = await convertImageToText(snippet.imageData, apiKey);
       setSnippets(prev => prev.map(s => s.id === snippet.id ? { ...s, textContent: text } : s));
-    } catch (error) {
-      alert("Failed to convert text. Please check your API key and try again.");
+    } catch (error: any) {
+      console.error(error);
+      alert(`Failed to convert text: ${error.message || "Unknown error"}`);
     } finally {
       setProcessingId(null);
     }
