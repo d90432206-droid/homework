@@ -1,9 +1,25 @@
+'use client';
 
-
+import React, { useRef, useState, useEffect, MouseEvent } from 'react';
+import { Eraser, MousePointer2, Check, ArrowLeft, RotateCcw, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Snippet } from '@/types';
+import { cn } from '@/lib/utils';
 import { detectQuestionBlocks } from '@/lib/gemini';
-import { Loader2, Sparkles } from 'lucide-react';
 
-// ... interface and type Rect remain same ...
+interface EditorStepProps {
+  imageSrc: string;
+  onConfirm: (snippets: Snippet[]) => void;
+  onBack: () => void;
+}
+
+type Rect = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,7 +75,31 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
   };
 
   const processCrops = () => {
-    // ... same ...
+    if (!canvasRef.current) return;
+    const snippets: Snippet[] = [];
+    
+    rects.forEach(rect => {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = rect.width;
+      tempCanvas.height = rect.height;
+      const tCtx = tempCanvas.getContext('2d');
+      if (tCtx) {
+        tCtx.drawImage(
+          canvasRef.current!,
+          rect.x, rect.y, rect.width, rect.height,
+          0, 0, rect.width, rect.height
+        );
+        snippets.push({
+          id: rect.id,
+          imageData: tempCanvas.toDataURL('image/png'),
+          width: rect.width,
+          height: rect.height,
+          aspectRatio: rect.width / rect.height
+        });
+      }
+    });
+
+    onConfirm(snippets);
   };
 
   return (
