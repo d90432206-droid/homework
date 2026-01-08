@@ -1,9 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // We will try these models in order until one works.
-// We prioritize 1.5 Flash as it is the most robust standard model.
-// We fallback to Pro Vision for older keys.
-const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-pro-vision", "gemini-1.5-pro"];
+// We prioritize the model requested by the user, then fallbacks.
+const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro-vision"];
 
 export async function convertImageToText(imgBase64: string, apiKey: string) {
   // Try models in sequence for text conversion
@@ -49,21 +48,16 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
       console.log(`Attempting auto-detect with model: ${modelName}`);
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // Only modern models support JSON mode natively
-      const isModern = modelName.includes("1.5") || modelName.includes("flash") || modelName.includes("pro-vision") === false;
-      const modelConfig: any = { model: modelName };
-      
-      // Note: gemini-pro-vision fails if you pass responseMimeType
-      if (isModern) {
-         modelConfig.generationConfig = { responseMimeType: "application/json" };
-      }
-
-      const model = genAI.getGenerativeModel(modelConfig);
+      // We purposefully DO NOT use responseMimeType: "application/json" here
+      // because it causes 400 errors with some API keys/versions.
+      // e.g. "Unknown name 'responseMimeType' at 'generation_config'"
+      const model = genAI.getGenerativeModel({ model: modelName });
       const base64Data = imgBase64.split(",")[1];
 
       let prompt = `
         Analyze this exam paper. Identify the bounding boxes for each distinct question block.
-        Return a JSON array of objects. Each object must have:
+        Return a STRICT JSON array of objects.
+        Each object must have:
         - "ymin": number (0-100, top edge percentage)
         - "xmin": number (0-100, left edge percentage)
         - "ymax": number (0-100, bottom edge percentage)
@@ -72,15 +66,11 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
         Example:
         [
           {"ymin": 10, "xmin": 5, "ymax": 15, "xmax": 95},
-          ...
+          {"ymin": 20, "xmin": 5, "ymax": 30, "xmax": 95}
         ]
         Include ALL questions found.
+        Return ONLY valid JSON. Do not wrap in markdown blocks.
       `;
-
-      // For older models, we need to be stricter about JSON formatting in the prompt since we can't enforce it via config
-      if (!isModern) {
-        prompt += "Return ONLY valid JSON. Do not wrap in markdown blocks.";
-      }
 
       const imagePart = {
         inlineData: {
@@ -93,7 +83,7 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
       const response = await result.response;
       let text = response.text();
       
-      // Clean up markdown if present (handling older model behavior)
+      // Clean up markdown if present
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
       try {
