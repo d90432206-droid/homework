@@ -63,18 +63,24 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     };
   }, [imageSrc]);
 
-  const getPos = (e: MouseEvent | TouchEvent) => {
+  // We need to use React.MouseEvent/TouchEvent or native kinds.
+  // Since we attach to React elements, we get React Synthetic Events.
+  // But for logic reuse we can just use a union or 'any' if lazy, but let's try to be specific.
+  
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     
     let clientX, clientY;
+    
+    // Check if it's a touch event via 'touches' property presence
+    // In React Synthetic Event, we can check nativeEvent or just cast.
     if ('touches' in e) {
        // Touch event
        if (e.touches.length > 0) {
          clientX = e.touches[0].clientX;
          clientY = e.touches[0].clientY;
        } else if (e.changedTouches && e.changedTouches.length > 0) {
-         // Touch end events might use changedTouches
          clientX = e.changedTouches[0].clientX;
          clientY = e.changedTouches[0].clientY;
        } else {
@@ -82,8 +88,8 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
        }
     } else {
       // Mouse event
-      clientX = (e as MouseEvent).clientX;
-      clientY = (e as MouseEvent).clientY;
+      clientX = (e as React.MouseEvent<HTMLCanvasElement>).clientX;
+      clientY = (e as React.MouseEvent<HTMLCanvasElement>).clientY;
     }
 
     const x = (clientX - rect.left) * (canvasRef.current.width / rect.width);
@@ -91,17 +97,11 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     return { x, y };
   };
 
-  const startDrawing = (e: MouseEvent | TouchEvent) => {
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     // Only prevent default if we are in a drawing/selecting mode to stop scrolling
-    if (e.cancelable && (mode === 'erase' || mode === 'select')) {
-        // We only prevent default if we want to block scrolling.
-        // But for 'select' we definitely want to block scrolling while dragging.
-        // For 'erase' we definitely want to block scrolling while erasing.
-        // e.preventDefault(); 
-        // Note: preventDefault() in React's synthetic event might not work for touchmove if passive listener.
-        // We handle this via CSS touch-action: none on the canvas.
-    }
-
+    // Note: e.cancelable is reliable on native events, react synthetic events wrap it.
+    // We can access e.nativeEvent if needed.
+    
     if (mode === 'erase') {
       setIsDrawing(true);
       const ctx = canvasRef.current?.getContext('2d');
@@ -121,12 +121,9 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     }
   };
 
-  const draw = (e: MouseEvent | TouchEvent) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     
-    // Prevent scrolling when dragging/drawing
-    // if (e.cancelable) e.preventDefault();
-
     if (mode === 'erase') {
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx) {
