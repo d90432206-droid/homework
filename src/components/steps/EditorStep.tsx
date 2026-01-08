@@ -35,7 +35,102 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
 
   // ... useEffect for loading image remains same ...
 
-  // ... getPos, startDrawing, draw, endDrawing, removeRect remain same ...
+  // We need to use React.MouseEvent/TouchEvent or native kinds.
+  // Since we attach to React elements, we get React Synthetic Events.
+  // But for logic reuse we can just use a union or 'any' if lazy, but let's try to be specific.
+  
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    
+    let clientX, clientY;
+    
+    // Check if it's a touch event via 'touches' property presence
+    // In React Synthetic Event, we can check nativeEvent or just cast.
+    if ('touches' in e) {
+       // Touch event
+       if (e.touches.length > 0) {
+         clientX = e.touches[0].clientX;
+         clientY = e.touches[0].clientY;
+       } else if (e.changedTouches && e.changedTouches.length > 0) {
+         clientX = e.changedTouches[0].clientX;
+         clientY = e.changedTouches[0].clientY;
+       } else {
+         return { x: 0, y: 0 };
+       }
+    } else {
+      // Mouse event
+      clientX = (e as React.MouseEvent<HTMLCanvasElement>).clientX;
+      clientY = (e as React.MouseEvent<HTMLCanvasElement>).clientY;
+    }
+
+    const x = (clientX - rect.left) * (canvasRef.current.width / rect.width);
+    const y = (clientY - rect.top) * (canvasRef.current.height / rect.height);
+    return { x, y };
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Only prevent default if we are in a drawing/selecting mode to stop scrolling
+    // Note: e.cancelable is reliable on native events, react synthetic events wrap it.
+    // We can access e.nativeEvent if needed.
+    
+    if (mode === 'erase') {
+      setIsDrawing(true);
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx) {
+        const { x, y } = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 30 * (canvasRef.current!.width / 1000); 
+        ctx.lineCap = 'round';
+      }
+    } else if (mode === 'select') {
+      setIsDrawing(true);
+      const { x, y } = getPos(e);
+      setStartPos({ x, y });
+      setCurrentRect({ id: 'temp', x, y, width: 0, height: 0 });
+    }
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    
+    if (mode === 'erase') {
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx) {
+        const { x, y } = getPos(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    } else if (mode === 'select') {
+      const { x, y } = getPos(e);
+      const width = x - startPos.x;
+      const height = y - startPos.y;
+      setCurrentRect({
+        id: 'temp',
+        x: width > 0 ? startPos.x : x,
+        y: height > 0 ? startPos.y : y,
+        width: Math.abs(width),
+        height: Math.abs(height)
+      });
+    }
+  };
+
+  const endDrawing = () => {
+    setIsDrawing(false);
+    if (mode === 'select' && currentRect) {
+      if (currentRect.width > 10 && currentRect.height > 10) {
+        const newRect = { ...currentRect, id: Date.now().toString() };
+        setRects(prev => [...prev, newRect]);
+      }
+      setCurrentRect(null);
+    }
+  };
+
+  const removeRect = (id: string) => {
+    setRects(prev => prev.filter(r => r.id !== id));
+  };
 
   // New function for AI Auto Detect
   const handleAutoDetect = async () => {
