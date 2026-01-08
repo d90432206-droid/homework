@@ -63,15 +63,45 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     };
   }, [imageSrc]);
 
-  const getPos = (e: MouseEvent) => {
+  const getPos = (e: MouseEvent | TouchEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    
+    let clientX, clientY;
+    if ('touches' in e) {
+       // Touch event
+       if (e.touches.length > 0) {
+         clientX = e.touches[0].clientX;
+         clientY = e.touches[0].clientY;
+       } else if (e.changedTouches && e.changedTouches.length > 0) {
+         // Touch end events might use changedTouches
+         clientX = e.changedTouches[0].clientX;
+         clientY = e.changedTouches[0].clientY;
+       } else {
+         return { x: 0, y: 0 };
+       }
+    } else {
+      // Mouse event
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
+    }
+
+    const x = (clientX - rect.left) * (canvasRef.current.width / rect.width);
+    const y = (clientY - rect.top) * (canvasRef.current.height / rect.height);
     return { x, y };
   };
 
-  const handleMouseDown = (e: MouseEvent) => {
+  const startDrawing = (e: MouseEvent | TouchEvent) => {
+    // Only prevent default if we are in a drawing/selecting mode to stop scrolling
+    if (e.cancelable && (mode === 'erase' || mode === 'select')) {
+        // We only prevent default if we want to block scrolling.
+        // But for 'select' we definitely want to block scrolling while dragging.
+        // For 'erase' we definitely want to block scrolling while erasing.
+        // e.preventDefault(); 
+        // Note: preventDefault() in React's synthetic event might not work for touchmove if passive listener.
+        // We handle this via CSS touch-action: none on the canvas.
+    }
+
     if (mode === 'erase') {
       setIsDrawing(true);
       const ctx = canvasRef.current?.getContext('2d');
@@ -80,7 +110,7 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.strokeStyle = 'white';
-        ctx.lineWidth = 30 * (canvasRef.current!.width / 1000); // Scale brush size
+        ctx.lineWidth = 30 * (canvasRef.current!.width / 1000); 
         ctx.lineCap = 'round';
       }
     } else if (mode === 'select') {
@@ -91,8 +121,11 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     }
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const draw = (e: MouseEvent | TouchEvent) => {
     if (!isDrawing) return;
+    
+    // Prevent scrolling when dragging/drawing
+    // if (e.cancelable) e.preventDefault();
 
     if (mode === 'erase') {
       const ctx = canvasRef.current?.getContext('2d');
@@ -115,7 +148,7 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
     }
   };
 
-  const handleMouseUp = () => {
+  const endDrawing = () => {
     setIsDrawing(false);
     if (mode === 'select' && currentRect) {
       if (currentRect.width > 10 && currentRect.height > 10) {
@@ -190,12 +223,16 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
         <div className="relative mx-auto shadow-lg" style={{ width: 'fit-content' }}>
           <canvas
             ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={endDrawing}
+            onMouseLeave={endDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={endDrawing}
+            onTouchCancel={endDrawing}
             className={cn("cursor-crosshair", mode === 'erase' ? 'cursor-cell' : 'cursor-crosshair')}
-            style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+            style={{ maxWidth: '100%', height: 'auto', display: 'block', touchAction: 'none' }}
           />
           
           {/* Overlay for selection boxes */}
