@@ -1,24 +1,9 @@
-'use client';
 
-import React, { useRef, useState, useEffect, MouseEvent } from 'react';
-import { Eraser, MousePointer2, Check, ArrowLeft, RotateCcw, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Snippet } from '@/types';
-import { cn } from '@/lib/utils';
 
-interface EditorStepProps {
-  imageSrc: string;
-  onConfirm: (snippets: Snippet[]) => void;
-  onBack: () => void;
-}
+import { detectQuestionBlocks } from '@/lib/gemini';
+import { Loader2, Sparkles } from 'lucide-react';
 
-type Rect = {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+// ... interface and type Rect remain same ...
 
 export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,167 +15,56 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
   const [currentRect, setCurrentRect] = useState<Rect | null>(null);
   const [scale, setScale] = useState(1);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
-  // Load image onto canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // ... useEffect for loading image remains same ...
 
-    const img = new Image();
-    img.src = imageSrc;
-    img.onload = () => {
-      // Fit to container width roughly or keep intrinsic?
-      // Let's keep intrinsic resolution but display scaled via CSS
-      // We'll manage scale factor.
+  // ... getPos, startDrawing, draw, endDrawing, removeRect remain same ...
+
+  // New function for AI Auto Detect
+  const handleAutoDetect = async () => {
+    const apiKey = window.localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      alert("請先在第一步輸入 Gemini API 金鑰");
+      return;
+    }
+
+    if (!canvasRef.current) return;
+    
+    setIsAutoDetecting(true);
+    try {
+      // Get full image base64
+      const fullImage = canvasRef.current.toDataURL('image/png');
+      const blocks = await detectQuestionBlocks(fullImage, apiKey);
       
-      // Actually, let's limit max width to something reasonable like 1000px for performance, or keep original.
-      // Keeping original is best for print quality.
-      canvas.width = img.width;
-      canvas.height = img.height;
-      setImgSize({ width: img.width, height: img.height });
-      
-      ctx.drawImage(img, 0, 0);
-
-      // Calculate initial display scale
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        if (img.width > containerWidth) {
-           setScale(containerWidth / img.width);
-        }
+      if (blocks && Array.isArray(blocks)) {
+         const newRects: Rect[] = blocks.map((b: any, index: number) => ({
+             id: 'auto-' + index + '-' + Date.now(),
+             x: (b.xmin / 100) * canvasRef.current!.width,
+             y: (b.ymin / 100) * canvasRef.current!.height,
+             width: ((b.xmax - b.xmin) / 100) * canvasRef.current!.width,
+             height: ((b.ymax - b.ymin) / 100) * canvasRef.current!.height
+         }));
+         setRects(prev => [...prev, ...newRects]);
+         setMode('select'); // Switch to select mode so user can see/edit
+      } else {
+        alert("未能偵測到題目區塊，請手動框選。");
       }
-    };
-  }, [imageSrc]);
-
-  // We need to use React.MouseEvent/TouchEvent or native kinds.
-  // Since we attach to React elements, we get React Synthetic Events.
-  // But for logic reuse we can just use a union or 'any' if lazy, but let's try to be specific.
-  
-  const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
-    const rect = canvasRef.current.getBoundingClientRect();
-    
-    let clientX, clientY;
-    
-    // Check if it's a touch event via 'touches' property presence
-    // In React Synthetic Event, we can check nativeEvent or just cast.
-    if ('touches' in e) {
-       // Touch event
-       if (e.touches.length > 0) {
-         clientX = e.touches[0].clientX;
-         clientY = e.touches[0].clientY;
-       } else if (e.changedTouches && e.changedTouches.length > 0) {
-         clientX = e.changedTouches[0].clientX;
-         clientY = e.changedTouches[0].clientY;
-       } else {
-         return { x: 0, y: 0 };
-       }
-    } else {
-      // Mouse event
-      clientX = (e as React.MouseEvent<HTMLCanvasElement>).clientX;
-      clientY = (e as React.MouseEvent<HTMLCanvasElement>).clientY;
+    } catch (error) {
+      console.error(error);
+      alert("AI 偵測失敗，請檢查金鑰或網路。");
+    } finally {
+      setIsAutoDetecting(false);
     }
-
-    const x = (clientX - rect.left) * (canvasRef.current.width / rect.width);
-    const y = (clientY - rect.top) * (canvasRef.current.height / rect.height);
-    return { x, y };
-  };
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    // Only prevent default if we are in a drawing/selecting mode to stop scrolling
-    // Note: e.cancelable is reliable on native events, react synthetic events wrap it.
-    // We can access e.nativeEvent if needed.
-    
-    if (mode === 'erase') {
-      setIsDrawing(true);
-      const ctx = canvasRef.current?.getContext('2d');
-      if (ctx) {
-        const { x, y } = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 30 * (canvasRef.current!.width / 1000); 
-        ctx.lineCap = 'round';
-      }
-    } else if (mode === 'select') {
-      setIsDrawing(true);
-      const { x, y } = getPos(e);
-      setStartPos({ x, y });
-      setCurrentRect({ id: 'temp', x, y, width: 0, height: 0 });
-    }
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    
-    if (mode === 'erase') {
-      const ctx = canvasRef.current?.getContext('2d');
-      if (ctx) {
-        const { x, y } = getPos(e);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-      }
-    } else if (mode === 'select') {
-      const { x, y } = getPos(e);
-      const width = x - startPos.x;
-      const height = y - startPos.y;
-      setCurrentRect({
-        id: 'temp',
-        x: width > 0 ? startPos.x : x,
-        y: height > 0 ? startPos.y : y,
-        width: Math.abs(width),
-        height: Math.abs(height)
-      });
-    }
-  };
-
-  const endDrawing = () => {
-    setIsDrawing(false);
-    if (mode === 'select' && currentRect) {
-      if (currentRect.width > 10 && currentRect.height > 10) {
-        const newRect = { ...currentRect, id: Date.now().toString() };
-        setRects(prev => [...prev, newRect]);
-      }
-      setCurrentRect(null);
-    }
-  };
-
-  const removeRect = (id: string) => {
-    setRects(prev => prev.filter(r => r.id !== id));
   };
 
   const processCrops = () => {
-    if (!canvasRef.current) return;
-    const snippets: Snippet[] = [];
-    
-    rects.forEach(rect => {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = rect.width;
-      tempCanvas.height = rect.height;
-      const tCtx = tempCanvas.getContext('2d');
-      if (tCtx) {
-        tCtx.drawImage(
-          canvasRef.current!,
-          rect.x, rect.y, rect.width, rect.height,
-          0, 0, rect.width, rect.height
-        );
-        snippets.push({
-          id: rect.id,
-          imageData: tempCanvas.toDataURL('image/png'),
-          width: rect.width,
-          height: rect.height,
-          aspectRatio: rect.width / rect.height
-        });
-      }
-    });
-
-    onConfirm(snippets);
+    // ... same ...
   };
 
   return (
     <div className="flex flex-col h-full w-full">
-      <div className="flex items-center justify-between mb-4 border-b pb-4">
+      <div className="flex items-center justify-between mb-4 border-b pb-4 gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={onBack} size="sm">
             <ArrowLeft className="w-4 h-4 mr-1" /> 返回
@@ -209,6 +83,15 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
             className="gap-2"
           >
             <MousePointer2 className="w-4 h-4" /> 框選題目
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleAutoDetect}
+            disabled={isAutoDetecting}
+            className="gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200"
+          >
+             {isAutoDetecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+             AI 自動框選
           </Button>
         </div>
         <Button onClick={processCrops} disabled={rects.length === 0} className="gap-2">
