@@ -11,5 +11,4 @@ export type AppState = {
   step: 'upload' | 'editor' | 'arrange' | 'download';
   originalImage: string | null;
   snippets: Snippet[];
-  apiKey: string | null; // Store user provided key
 };
