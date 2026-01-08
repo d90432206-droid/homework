@@ -1,12 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // We will try these models in order until one works.
+// User requested to ONLY use Gemini 2.5+ models (excluding 2.0/1.5).
 const MODELS_TO_TRY = [
-  "gemini-2.5-flash", 
-  "gemini-2.0-flash-exp", 
-  "gemini-1.5-flash", 
-  "gemini-1.5-pro"
-]; // removed gemini-pro-vision as it is deprecated
+  "gemini-2.5-flash"
+];
 
 export async function convertImageToText(imgBase64: string, apiKey: string) {
   // Try models in sequence for text conversion
