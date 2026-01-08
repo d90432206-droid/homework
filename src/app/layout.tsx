@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Smart Exam Maker",
-  description: "Create custom exams from photos",
+  title: "AI 智慧試卷生成器",
+  description: "從試卷照片快速製作客製化練習卷",
 };
 
 export default function RootLayout({

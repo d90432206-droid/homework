@@ -53,11 +53,11 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
     <div className="flex flex-col h-[80vh]">
       <div className="flex items-center justify-between mb-4 border-b pb-4">
         <Button variant="ghost" onClick={onBack} size="sm">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Re-edit
+          <ArrowLeft className="w-4 h-4 mr-1" /> 重新編輯
         </Button>
-        <h2 className="text-xl font-bold">Arrange Questions</h2>
+        <h2 className="text-xl font-bold">排版試題</h2>
         <Button onClick={handleExport} className="gap-2 bg-green-600 hover:bg-green-700">
-          <Download className="w-4 h-4" /> Download PDF
+          <Download className="w-4 h-4" /> 下載 PDF
         </Button>
       </div>
 
@@ -68,8 +68,8 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
           style={{ width: '210mm', height: '297mm', minWidth: '794px', minHeight: '1123px' }}
         >
           <div className="border-b border-dashed border-gray-300 p-8 text-center text-gray-400">
-            <h1 className="text-2xl font-bold text-black border-none outline-none" contentEditable>Exam Title</h1>
-            <p contentEditable>Class: __________ Name: __________</p>
+            <h1 className="text-2xl font-bold text-black border-none outline-none" contentEditable>試卷標題</h1>
+            <p contentEditable>班級：__________ 姓名：__________</p>
           </div>
 
           <div className="p-4 relative w-full h-full"> 
@@ -85,13 +85,13 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
                    {/* Floating Toolbar */}
                    <div className="absolute -top-10 left-0 hidden group-hover:flex gap-2 bg-white shadow-md rounded p-1 z-10">
                       {snippet.textContent ? (
-                         <Button size="sm" variant="outline" onClick={() => handleRevertToImage(snippet.id)} title="Revert to Image">
+                         <Button size="sm" variant="outline" onClick={() => handleRevertToImage(snippet.id)} title="還原為圖片">
                            <RefreshCcw className="w-3 h-3" />
                          </Button>
                       ) : (
-                         <Button size="sm" variant="default" onClick={() => handleConvertToText(snippet)} disabled={!!processingId} title="Digitize with AI">
+                         <Button size="sm" variant="default" onClick={() => handleConvertToText(snippet)} disabled={!!processingId} title="使用 AI 辨識文字">
                            {processingId === snippet.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3 text-purple-200" />} 
-                           <span className="ml-1 text-xs">Digitize</span>
+                           <span className="ml-1 text-xs">數位化</span>
                          </Button>
                       )}
                    </div>
@@ -117,7 +117,7 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
         </div>
       </div>
       <p className="text-center text-xs text-muted-foreground mt-2">
-        Drag questions to arrange. Hover over a question to use AI Digitize (requires API Key).
+        拖曳題目以進行排版。滑鼠游標懸停於題目上可使用 AI 數位化 (需 API 金鑰)。
       </p>
     </div>
   );

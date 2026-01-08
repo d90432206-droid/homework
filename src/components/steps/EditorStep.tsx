@@ -196,7 +196,7 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
       <div className="flex items-center justify-between mb-4 border-b pb-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={onBack} size="sm">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back
+            <ArrowLeft className="w-4 h-4 mr-1" /> 返回
           </Button>
           <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2" />
           <Button
@@ -204,18 +204,18 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
             onClick={() => setMode('erase')}
             className="gap-2"
           >
-            <Eraser className="w-4 h-4" /> Answer Eraser
+            <Eraser className="w-4 h-4" /> 答案擦除筆
           </Button>
           <Button
             variant={mode === 'select' ? 'default' : 'outline'}
             onClick={() => setMode('select')}
             className="gap-2"
           >
-            <MousePointer2 className="w-4 h-4" /> Select Questions
+            <MousePointer2 className="w-4 h-4" /> 框選題目
           </Button>
         </div>
         <Button onClick={processCrops} disabled={rects.length === 0} className="gap-2">
-          Next Step <Check className="w-4 h-4" />
+          下一步 <Check className="w-4 h-4" />
         </Button>
       </div>
 
@@ -279,8 +279,8 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
         </div>
       </div>
        <p className="text-center text-xs text-muted-foreground mt-2">
-        {mode === 'erase' ? 'Drag to white-out answers. ' : 'Click and drag to select question blocks. '}
-        Scroll if the image is large.
+        {mode === 'erase' ? '拖曳以塗改答案。 ' : '點擊並拖曳以框選題目區塊。 '}
+        若圖片較大可捲動頁面。
       </p>
     </div>
   );
