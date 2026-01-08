@@ -1,12 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // We will try these models in order until one works.
-// We prioritize the model requested by the user, then fallbacks.
-const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro-vision"];
+const MODELS_TO_TRY = [
+  "gemini-2.5-flash", 
+  "gemini-2.0-flash-exp", 
+  "gemini-1.5-flash", 
+  "gemini-1.5-pro"
+]; // removed gemini-pro-vision as it is deprecated
 
 export async function convertImageToText(imgBase64: string, apiKey: string) {
   // Try models in sequence for text conversion
-  let lastError;
+  const errors = [];
   for (const modelName of MODELS_TO_TRY) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
@@ -30,27 +34,24 @@ export async function convertImageToText(imgBase64: string, apiKey: string) {
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       return response.text();
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`Model ${modelName} failed text conv:`, error);
-      lastError = error;
+      errors.push(`${modelName}: ${error.message}`);
       // Continue to next model
     }
   }
-  throw lastError || new Error("All models failed to convert text.");
+  throw new Error(`All models failed. Details:\n${errors.join('\n')}`);
 }
 
 // New function to detect question bounding boxes
 export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
-  let lastError;
+  const errors = [];
   
   for (const modelName of MODELS_TO_TRY) {
     try {
       console.log(`Attempting auto-detect with model: ${modelName}`);
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // We purposefully DO NOT use responseMimeType: "application/json" here
-      // because it causes 400 errors with some API keys/versions.
-      // e.g. "Unknown name 'responseMimeType' at 'generation_config'"
       const model = genAI.getGenerativeModel({ model: modelName });
       const base64Data = imgBase64.split(",")[1];
 
@@ -91,15 +92,19 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
         if (Array.isArray(data)) return data; 
       } catch (e) {
         console.warn(`JSON parse failed for ${modelName}:`, text);
+        // Don't count JSON parse error as a specialized model error, 
+        // but maybe we should if the model returns garbage.
+        // For now, let's just let it loop.
       }
       
-    } catch (error) {
+    } catch (error: any) {
        console.warn(`Model ${modelName} auto-detect failed:`, error);
-       lastError = error;
+       errors.push(`${modelName}: ${error.message?.split('[')[0]}`); // Keep it brief
     }
   }
 
   // If we get here, all models failed
   console.error("All AI models failed.");
-  throw lastError || new Error("All AI models failed. Please check your API key.");
+  // Return the full error list so the user can debug
+  throw new Error(`所有模型皆失敗 (All models failed).\nErrors:\n${errors.join('\n')}`);
 }
