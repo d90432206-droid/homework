@@ -191,9 +191,9 @@ export const EditorStep: React.FC<EditorStepProps> = ({ imageSrc, onConfirm, onB
       } else {
         alert("未能偵測到題目區塊，請手動框選。");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("AI 偵測失敗，請檢查金鑰或網路。");
+      alert(`AI 偵測失敗: ${error.message || "Unknown Error"}`);
     } finally {
       setIsAutoDetecting(false);
     }
