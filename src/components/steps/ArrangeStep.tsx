@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, ArrowLeft, Wand2, Loader2, RefreshCcw } from 'lucide-react';
+import { Download, ArrowLeft, Wand2, Loader2, RefreshCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Snippet } from '@/types';
 import { convertImageToText } from '@/lib/gemini';
@@ -61,6 +61,10 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
           <Button 
             onClick={async () => {
               if (snippets.length === 0) return;
+              if (!apiKey) {
+                alert("Please enter a Google Gemini API Key first.");
+                return;
+              }
               for (const snippet of snippets) {
                 if (snippet.textContent) continue;
                 setProcessingId(snippet.id);
