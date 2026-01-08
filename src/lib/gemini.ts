@@ -43,12 +43,12 @@ export async function convertImageToText(imgBase64: string, apiKey: string) {
         Task: Transcribe the PRINTED text in this image.
         
         Rules:
-        1. COMPLETELY IGNORE AND REMOVE ANY HANDWRITTEN ANSWERS, MARKS, CIRCLES, OR DOODLES.
-        2. Return ONLY the printed question text. 
-        3. Maintain original formatting (newlines).
-        4. If the image contains a math problem, use LaTeX formatting for equations where appropriate, or standard clean text.
+        1. **Detect Question Text**: Identify the main question content.
+        2. **IGNORE Handwriting**: Do NOT transcribe any handwritten notes, answers, or circles. Treat them as noise.
+        3. **Math Mode**: Use standard text or simple LaTeX for math symbols.
+        4. **Formatting**: Keep lines broken as they appear in the visual block.
         
-        Output only the transcribed text.
+        Output only the detected printed text.
       `;
 
       const imagePart = {
@@ -86,21 +86,23 @@ export async function detectQuestionBlocks(imgBase64: string, apiKey: string) {
       const base64Data = imgBase64.split(",")[1];
 
       let prompt = `
-        Analyze this exam paper. Identify the bounding boxes for each distinct question block.
-        Return a STRICT JSON array of objects.
-        Each object must have:
-        - "ymin": number (0-100, top edge percentage)
-        - "xmin": number (0-100, left edge percentage)
-        - "ymax": number (0-100, bottom edge percentage)
-        - "xmax": number (0-100, right edge percentage)
+        Look at this exam paper.
+        Task: Identify the bounding box for EACH individual numbered question.
         
-        Example:
+        Instructions:
+        1. Find every question number (e.g., 1, 2, 3, 4...).
+        2. Draw a tight bounding box around the question text and its options/graphics.
+        3. **DO NOT** combine multiple questions into one big box. Split them up!
+        4. Ignore the page header (title, name field).
+        
+        Return a strict JSON array:
         [
-          {"ymin": 10, "xmin": 5, "ymax": 15, "xmax": 95},
-          {"ymin": 20, "xmin": 5, "ymax": 30, "xmax": 95}
+          {"ymin": 0, "xmin": 0, "ymax": 100, "xmax": 100},
+          ...
         ]
-        Include ALL questions found.
-        Return ONLY valid JSON. Do not wrap in markdown blocks.
+        (Values are 0-100 percentages)
+        
+        Return ONLY valid JSON.
       `;
 
       const imagePart = {

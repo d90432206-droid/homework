@@ -57,9 +57,33 @@ export const ArrangeStep: React.FC<ArrangeStepProps> = ({ snippets: initialSnipp
           <ArrowLeft className="w-4 h-4 mr-1" /> 重新編輯
         </Button>
         <h2 className="text-xl font-bold">排版試題</h2>
-        <Button onClick={handleExport} className="gap-2 bg-green-600 hover:bg-green-700">
-          <Download className="w-4 h-4" /> 下載 PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={async () => {
+              if (snippets.length === 0) return;
+              for (const snippet of snippets) {
+                if (snippet.textContent) continue;
+                setProcessingId(snippet.id);
+                try {
+                  const text = await convertImageToText(snippet.imageData, apiKey);
+                  setSnippets(prev => prev.map(s => s.id === snippet.id ? { ...s, textContent: text } : s));
+                  await new Promise(r => setTimeout(r, 500));
+                } catch (error: any) {
+                  console.error(`Failed to digitize snippet ${snippet.id}:`, error);
+                }
+              }
+              setProcessingId(null);
+            }} 
+            variant="outline"
+            disabled={!!processingId}
+            className="gap-2"
+          >
+            <Sparkles className="w-4 h-4" /> 全部數位化
+          </Button>
+          <Button onClick={handleExport} className="gap-2 bg-green-600 hover:bg-green-700">
+            <Download className="w-4 h-4" /> 下載 PDF
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto bg-slate-200 dark:bg-slate-900 p-8 flex justify-center">
